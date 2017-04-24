@@ -849,6 +849,7 @@ Virtual_column_info *add_virtual_expression(THD *thd, Item *expr)
   enum Window_frame::Frame_exclusion frame_exclusion;
   enum trigger_order_type trigger_action_order_type;
   DDL_options_st object_ddl_options;
+  enum Field::utype utype;
 }
 
 %{
@@ -1955,6 +1956,8 @@ END_OF_INPUT
 %type <lex_str_ptr> query_name
 
 %type <lex_str_list> opt_with_column_list
+
+%type <utype> opt_with_compression_algorithm
 
 %%
 
@@ -6546,7 +6549,24 @@ attribute:
                                 $2->name,Lex->charset->csname));
             Lex->last_field->charset= $2;
           }
+        | COMPRESSED_SYM opt_with_compression_algorithm
+          {
+            Lex->last_field->unireg_check= $2;
+          }
         | serial_attribute
+        ;
+
+opt_with_compression_algorithm:
+          /* empty */ { $$= Field::COMPRESSED_WITH_ZLIB; }
+        | WITH IDENT
+          {
+            if (!strcmp($2.str, "zlib"))
+              $$= Field::COMPRESSED_WITH_ZLIB;
+            else if (!strcmp($2.str, "deflate"))
+              $$= Field::COMPRESSED_WITH_DEFLATE;
+            else
+             MYSQL_YYABORT;
+          }
         ;
 
 serial_attribute:

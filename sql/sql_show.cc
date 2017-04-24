@@ -2135,6 +2135,10 @@ int show_create_table(THD *thd, TABLE_LIST *table_list, String *packet,
           !(sql_mode & MODE_NO_FIELD_OPTIONS))
         packet->append(STRING_WITH_LEN(" AUTO_INCREMENT"));
     }
+    if (field->unireg_check == Field::COMPRESSED_WITH_ZLIB)
+      packet->append(STRING_WITH_LEN(" /*!100301 COMPRESSED*/"));
+    else if (field->unireg_check == Field::COMPRESSED_WITH_DEFLATE)
+      packet->append(STRING_WITH_LEN(" /*!100301 COMPRESSED WITH deflate*/"));
     if (field->check_constraint)
     {
       StringBuffer<MAX_FIELD_WIDTH> str(&my_charset_utf8mb4_general_ci);
