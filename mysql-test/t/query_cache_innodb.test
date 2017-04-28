@@ -1,0 +1,33 @@
+--source include/have_innodb.inc
+--source include/have_query_cache.inc
+
+--echo #
+--echo # MDEV-12485: foreign key on delete cascade stale entries with
+--echo # query cache enabled
+--echo #
+ 
+set global query_cache_type=1;
+set global query_cache_size=1024*1024;
+set query_cache_type=1;
+ 
+create table t1 ( id int unsigned auto_increment, primary key(id) ) engine=innodb;
+ 
+create table t2 ( t2id int unsigned, id int unsigned, primary key(t2id, id), foreign key (`id`) references t1(`id`) on delete cascade ) engine=innodb;
+ 
+insert into t1 values (1);
+insert into t2 values (1,1);
+select * from t2;
+ 
+delete from t1;
+select * from t2;
+ 
+optimize table t2;
+select * from t2;
+ 
+drop table t2;
+drop table t1;
+ 
+set global query_cache_type=DEFAULT;
+set global query_cache_size=DEFAULT;
+
+--echo End of 10.2 tests
