@@ -1023,6 +1023,7 @@ static bool setup_conversion_functions(Prepared_statement *stmt,
 
   if (*read_pos++) //types supplied / first execute
   {
+    const uint signed_bit= 1 << 15;
     /*
       First execute or types altered by the client, setup the
       conversion routines for all parameters (one time)
@@ -1033,8 +1034,6 @@ static bool setup_conversion_functions(Prepared_statement *stmt,
     for (; it < end; ++it)
     {
       ushort typecode;
-      const uint signed_bit= 1 << 15;
-      const uint indicators_bit= 1 << 14;
 
       if (read_pos >= data_end)
         DBUG_RETURN(1);
@@ -1043,7 +1042,7 @@ static bool setup_conversion_functions(Prepared_statement *stmt,
       read_pos+= 2;
       (**it).unsigned_flag= MY_TEST(typecode & signed_bit);
       if (bulk_protocol)
-        (**it).indicators= MY_TEST(typecode & indicators_bit);
+        (**it).indicators= TRUE;
       setup_one_conversion_function(thd, *it,
                                     (uchar) (typecode & 0xff));
     }
@@ -3091,7 +3090,7 @@ void mysqld_stmt_bulk_execute(THD *thd, char *packet_arg, uint packet_length)
 {
   uchar *packet= (uchar*)packet_arg; // GCC 4.0.1 workaround
   ulong stmt_id= uint4korr(packet);
-  ulong flags= (ulong) uint2korr(packet);
+  ulong flags= (ulong) uint2korr(packet + 4);
   uchar *packet_end= packet + packet_length;
   DBUG_ENTER("mysqld_stmt_execute_bulk");
 
@@ -3109,8 +3108,8 @@ void mysqld_stmt_bulk_execute(THD *thd, char *packet_arg, uint packet_length)
     my_error(ER_UNSUPPORTED_PS, MYF(0));
   }
 
-  /* stmt id and one byte of flegs */
-  packet+= 4 + 1;
+  /* stmt id and one byte of flegs (other will be used for emulation) */
+  packet+= 4 + 2 - 1;
   /*
     Emulate all command buffer, where there was a bit before parameter
     which tell if there is type following
@@ -3167,7 +3166,7 @@ static void mysql_stmt_execute_common(THD *thd,
   open_cursor= MY_TEST(cursor_flags & (ulong) CURSOR_TYPE_READ_ONLY);
 
   thd->protocol= &thd->protocol_binary;
-  if (bulk_op)
+  if (!bulk_op)
     stmt->execute_loop(&expanded_query, open_cursor, packet, packet_end);
   else
     stmt->execute_bulk_loop(&expanded_query, open_cursor, packet, packet_end);
